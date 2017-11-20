@@ -21,6 +21,10 @@ typedef enum : NSUInteger {
     BlendTypeSrcATop = 9,
     BlendTypeDstATop = 10,
     BlendTypeXor = 11,
+    BlendTypeMultiply = 12,
+    BlendTypeScreen = 13,
+    BlendTypeDarken = 14,
+    BlendTypeLighten = 15,
 } BlendType;
 
 typedef enum {
@@ -39,6 +43,7 @@ typedef enum {
 @property (weak, nonatomic) IBOutlet UIImageView *bkg1View;
 @property (weak, nonatomic) IBOutlet UIImageView *bkg2View;
 @property (weak, nonatomic) IBOutlet UILabel *infoLabel;
+@property (weak, nonatomic) IBOutlet UIScrollView *scrolView;
 
 @property (nonatomic, strong) UIImage *src;
 @property (nonatomic, strong) UIImage *dst;
@@ -49,6 +54,7 @@ typedef enum {
 
 - (void)viewDidLoad {
     [super viewDidLoad];
+    self.scrolView.contentSize = CGSizeMake([UIScreen mainScreen].bounds.size.width, [UIScreen mainScreen].bounds.size.height * 2);
     self.bkgView.image = [UIImage imageNamed:@"bkg"];
     self.bkg1View.image = [UIImage imageNamed:@"bkg"];
     self.bkg2View.image = [UIImage imageNamed:@"bkg"];
@@ -130,6 +136,18 @@ typedef enum {
                 case BlendTypeXor:
                     Xor(srcRGB, dstRGB, rgbaPixel);
                     break;
+                case BlendTypeMultiply:
+                    Multiply(srcRGB, dstRGB, rgbaPixel);
+                    break;
+                case BlendTypeScreen:
+                    Screen(srcRGB, dstRGB, rgbaPixel);
+                    break;
+                case BlendTypeDarken:
+                    Darken(srcRGB, dstRGB, rgbaPixel);
+                    break;
+                case BlendTypeLighten:
+                    Lighten(srcRGB, dstRGB, rgbaPixel);
+                    break;
                 default:
                     break;
             }
@@ -195,9 +213,7 @@ void Src(uint8_t *src, uint8_t * dst, uint8_t *result)
     CGFloat Sb = src[BLUE]/255.0;
     CGFloat Sa = src[ALPHA]/255.0;
     
-    CGFloat Dr = dst[RED]/255.0;
-    CGFloat Dg = dst[GREEN]/255.0;
-    CGFloat Db = dst[BLUE]/255.0;
+
     CGFloat Da = dst[ALPHA]/255.0;
     
     
@@ -220,9 +236,6 @@ void Src(uint8_t *src, uint8_t * dst, uint8_t *result)
 // Cr = Cs * 0 + Cd * Ad; A = As * 0 + Ad * 1
 void Dst(uint8_t *src, uint8_t * dst, uint8_t *result)
 {
-    CGFloat Sr = src[RED]/255.0;
-    CGFloat Sg = src[GREEN]/255.0;
-    CGFloat Sb = src[BLUE]/255.0;
     CGFloat Sa = src[ALPHA]/255.0;
     
     CGFloat Da = dst[ALPHA]/255.0;
@@ -247,9 +260,6 @@ void Dst(uint8_t *src, uint8_t * dst, uint8_t *result)
 
 void Dst1(uint8_t *src, uint8_t * dst, uint8_t *result)
 {
-    CGFloat Sr = src[RED]/255.0;
-    CGFloat Sg = src[GREEN]/255.0;
-    CGFloat Sb = src[BLUE]/255.0;
     CGFloat Sa = src[ALPHA]/255.0;
     
     CGFloat Dr = dst[RED]/255.0;
@@ -484,6 +494,118 @@ void Xor(uint8_t *src, uint8_t * dst, uint8_t *result)
     CGFloat Rr = (Sr * (1 - Da) + Dr * (1 - Sa))/Ra;
     CGFloat Rg = (Sg * (1 - Da) + Dg * (1 - Sa))/Ra;
     CGFloat Rb = (Sb * (1 - Da) + Db * (1 - Sa))/Ra;
+    
+    result[RED] = Rr * 255;
+    result[GREEN] = Rg * 255;
+    result[BLUE] = Rb * 255;
+    result[ALPHA] = Ra * 255;
+}
+
+
+//Cr = Cs * Cd ;        Ar = Ca * Da;
+void Multiply(uint8_t *src, uint8_t * dst, uint8_t *result)
+{
+    CGFloat Sa = src[ALPHA]/255.0;
+    CGFloat Sr = src[RED]/255.0;
+    CGFloat Sg = src[GREEN]/255.0;
+    CGFloat Sb = src[BLUE]/255.0;
+    
+    CGFloat Da = dst[ALPHA]/255.0;
+    CGFloat Dr = dst[RED]/255.0;
+    CGFloat Dg = dst[GREEN]/255.0;
+    CGFloat Db = dst[BLUE]/255.0;
+    
+    
+//    CGFloat Ra = Sa * Da + Sa * (1-Da) + Da * (1-Sa);
+//    CGFloat Rr = ((Sr * Dr) + Sr * (1-Da) + Dr * (1-Sa))/(Ra==0?1:Ra);
+//    CGFloat Rg = ((Sg * Dg) + Sg * (1-Da) + Dg * (1-Sa))/(Ra==0?1:Ra);
+//    CGFloat Rb = ((Sb * Db) + Sb * (1-Da) + Db * (1-Sa))/(Ra==0?1:Ra);
+    
+    
+    CGFloat Ra = Sa * Da ;
+    CGFloat Rr = (Sr * Dr)/(Ra==0?1:Ra) ;
+    CGFloat Rg = (Sg * Dg)/(Ra==0?1:Ra) ;
+    CGFloat Rb = (Sb * Db)/(Ra==0?1:Ra) ;
+    
+    
+    result[RED] = Rr * 255;
+    result[GREEN] = Rg * 255;
+    result[BLUE] = Rb * 255;
+    result[ALPHA] = Ra * 255;
+}
+
+//Cr = 1 - (1-Cs)(1-Cd)                 Ar =  1 - (1-Ca)(1-Da)
+void Screen(uint8_t *src, uint8_t * dst, uint8_t *result)
+{
+    CGFloat Sr = src[RED]/255.0;
+    CGFloat Sg = src[GREEN]/255.0;
+    CGFloat Sb = src[BLUE]/255.0;
+    CGFloat Sa = src[ALPHA]/255.0;
+    
+    CGFloat Dr = dst[RED]/255.0;
+    CGFloat Dg = dst[GREEN]/255.0;
+    CGFloat Db = dst[BLUE]/255.0;
+    CGFloat Da = dst[ALPHA]/255.0;
+    
+    CGFloat Ra = 1 - (1-Sa)*(1-Da);
+    CGFloat Rr =( 1 - (1-Sr)*(1-Dr))/(Ra==0?1:Ra);
+    CGFloat Rg =( 1 - (1-Sg)*(1-Dg))/(Ra==0?1:Ra);
+    CGFloat Rb =( 1 - (1-Sb)*(1-Db))/(Ra==0?1:Ra);
+    
+    
+    result[RED] = Rr * 255;
+    result[GREEN] = Rg * 255;
+    result[BLUE] = Rb * 255;
+    result[ALPHA] = Ra * 255;
+}
+
+void Darken(uint8_t *src, uint8_t * dst, uint8_t *result)
+{
+    CGFloat Sr = src[RED]/255.0;
+    CGFloat Sg = src[GREEN]/255.0;
+    CGFloat Sb = src[BLUE]/255.0;
+    CGFloat Sa = src[ALPHA]/255.0;
+    
+    CGFloat Dr = dst[RED]/255.0;
+    CGFloat Dg = dst[GREEN]/255.0;
+    CGFloat Db = dst[BLUE]/255.0;
+    CGFloat Da = dst[ALPHA]/255.0;
+    
+    CGFloat Sv = Sr + Sg + Sb;
+    CGFloat Dv = Dr + Dg + Db;
+    
+    
+    CGFloat Ra = Sv < Dv ? Sa : Da;
+
+    CGFloat preA = Ra == 0?1:Ra;
+    CGFloat Rr = (Sv < Dv ? Sr : Dr)/preA;
+    CGFloat Rg = (Sv < Dv ? Sg : Dg)/preA;
+    CGFloat Rb = (Sv < Dv ? Sb : Db)/preA;
+
+    
+    
+    result[RED] = Rr * 255;
+    result[GREEN] = Rg * 255;
+    result[BLUE] = Rb * 255;
+    result[ALPHA] = Ra * 255;
+}
+
+void Lighten(uint8_t *src, uint8_t * dst, uint8_t *result)
+{
+    CGFloat Sr = src[RED]/255.0;
+    CGFloat Sg = src[GREEN]/255.0;
+    CGFloat Sb = src[BLUE]/255.0;
+    CGFloat Sa = src[ALPHA]/255.0;
+    
+    CGFloat Dr = dst[RED]/255.0;
+    CGFloat Dg = dst[GREEN]/255.0;
+    CGFloat Db = dst[BLUE]/255.0;
+    CGFloat Da = dst[ALPHA]/255.0;
+    
+    CGFloat Rr = MAX(Sr, Dr);
+    CGFloat Rg = MAX(Sg, Dg);
+    CGFloat Rb = MAX(Sb, Db);
+    CGFloat Ra = MAX(Sa, Da);
     
     result[RED] = Rr * 255;
     result[GREEN] = Rg * 255;
